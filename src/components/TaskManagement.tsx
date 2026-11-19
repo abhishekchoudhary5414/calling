@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import styles from "./TaskManagement.module.css";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/db";
 import { Task, User } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -43,7 +43,7 @@ export default function TaskManagement() {
   const [loading, setLoading]   = useState(false);
   const [message, setMessage]   = useState("");
 
-  const supabase  = createClient();
+  const db = createClient();
   const { user }  = useAuth();
 
   /* auto-dismiss message */
@@ -58,7 +58,7 @@ export default function TaskManagement() {
   /* ── Fetch ───────────────────────────────────────── */
   const fetchTasks = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tasks").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       setTasks(data || []);
@@ -67,7 +67,7 @@ export default function TaskManagement() {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase.from("users").select("*");
+      const { data, error } = await db.from("users").select("*");
       if (error) throw error;
       setUsers(data || []);
     } catch (err) { console.error("Error fetching users:", err); }
@@ -79,7 +79,7 @@ export default function TaskManagement() {
     setLoading(true); setMessage("");
     try {
       if (editingTask) {
-        const { error } = await supabase.from("tasks").update({
+        const { error } = await db.from("tasks").update({
           user_id:     formData.user_id || null,
           title:       formData.title,
           description: formData.description,
@@ -89,7 +89,7 @@ export default function TaskManagement() {
         if (error) throw error;
         setMessage("Task updated successfully");
       } else {
-        const { error } = await supabase.from("tasks").insert({
+        const { error } = await db.from("tasks").insert({
           user_id:     formData.user_id || null,
           title:       formData.title,
           description: formData.description,
@@ -108,7 +108,7 @@ export default function TaskManagement() {
   const handleDelete = async (taskId: string) => {
     if (!confirm("Are you sure you want to delete this task?")) return;
     try {
-      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+      const { error } = await db.from("tasks").delete().eq("id", taskId);
       if (error) throw error;
       setMessage("Task deleted successfully"); await fetchTasks();
     } catch (err) { setMessage("Error deleting task"); console.error(err); }
@@ -118,7 +118,7 @@ export default function TaskManagement() {
   const handleUnassign = async (taskId: string) => {
     if (!confirm("Unassign this task?")) return;
     try {
-      const { error } = await supabase.from("tasks")
+      const { error } = await db.from("tasks")
         .update({ user_id: null, updated_at: new Date().toISOString() }).eq("id", taskId);
       if (error) throw error;
       setMessage("Task unassigned successfully"); await fetchTasks();
@@ -130,7 +130,7 @@ export default function TaskManagement() {
     // optimistic update
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus as any } : t));
     try {
-      const { error } = await supabase.from("tasks")
+      const { error } = await db.from("tasks")
         .update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", taskId);
       if (error) throw error;
     } catch (err) {
@@ -287,7 +287,9 @@ export default function TaskManagement() {
         <div className={styles.tableContainer}>
           {filteredTasks.length === 0 ? (
             <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>✅</div>
+              <div className={styles.emptyIcon}>
+                <TaskAltOutlined style={{ fontSize: "2.5rem", color: "#94a3b8" }} />
+              </div>
               <p className={styles.emptyText}>
                 {showAssignedOnly ? "No tasks assigned to you." : "No tasks found. Add one to get started."}
               </p>

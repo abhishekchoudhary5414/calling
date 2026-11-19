@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import styles from "./EntitiesManagement.module.css";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/db";
 import { Entity, User } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import * as XLSX from "xlsx";
@@ -25,6 +25,7 @@ import {
   SchoolOutlined,
   PaletteOutlined,
   BuildOutlined,
+  FolderOpenOutlined,
 } from "@mui/icons-material";
 import {
   Dialog,
@@ -126,7 +127,7 @@ export default function EntitiesManagement() {
   );
 
   const { user } = useAuth();
-  const supabase = useMemo(() => createClient(), []);
+  const db = useMemo(() => createClient(), []);
   const entityConfig = ENTITY_TYPES[CURRENT_ENTITY_TYPE];
 
   const getIcon = (iconName: string) => {
@@ -148,14 +149,14 @@ export default function EntitiesManagement() {
   /* ── Data fetches ─────────────────────────────────── */
   const fetchAllUsers = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("users").select("*").eq("role", "user").order("name", { ascending: true });
       if (error) throw error;
       setAllUsers(data || []);
     } catch (err) {
       console.error("Error fetching users:", err);
     }
-  }, [supabase]);
+  }, [db]);
 
   const fetchEntities = useCallback(async (page: number = currentPage, perPage: number = itemsPerPage) => {
     if (!user) { setEntities([]); return; }
@@ -164,7 +165,7 @@ export default function EntitiesManagement() {
       // Check if entity_type column exists
       if (!hasEntityTypeColumn) {
         try {
-          const { error } = await supabase.from("schools").select("entity_type").limit(1);
+          const { error } = await db.from("schools").select("entity_type").limit(1);
           if (!error) {
             setHasEntityTypeColumn(true);
           }
@@ -173,8 +174,8 @@ export default function EntitiesManagement() {
         }
       }
 
-      let countQuery = supabase.from("schools").select("*", { count: "exact", head: true });
-      let dataQuery = supabase.from("schools").select("*");
+      let countQuery = db.from("schools").select("*", { count: "exact", head: true });
+      let dataQuery = db.from("schools").select("*");
 
       // Apply entity_type filtering to both queries if column exists
       if (hasEntityTypeColumn) {
@@ -190,7 +191,7 @@ export default function EntitiesManagement() {
       // Apply user filtering to both queries
       if (user.role !== "admin") {
         try {
-          const { data: assignments, error: assignError } = await supabase
+          const { data: assignments, error: assignError } = await db
             .from("user_school_assignments").select("school_id").eq("user_id", user.id);
           if (assignError) {
             console.error("Error fetching user assignments:", assignError);
@@ -245,7 +246,7 @@ export default function EntitiesManagement() {
       const counts: Record<string, number> = {};
       for (const s of entityList) {
         try {
-          const { count, error: countError } = await supabase
+          const { count, error: countError } = await db
             .from("notes").select("id", { head: true, count: "exact" }).eq("school_id", s.id);
           if (countError) {
             console.warn(`Error counting notes for entity ${s.id}:`, countError);
@@ -273,7 +274,7 @@ export default function EntitiesManagement() {
     } finally {
       setEntitiesLoading(false);
     }
-  }, [user, hasEntityTypeColumn, currentPage, itemsPerPage, supabase, entityConfig.plural]);
+  }, [user, hasEntityTypeColumn, currentPage, itemsPerPage, db, entityConfig.plural]);
 
   /* ── Init ─────────────────────────────────────────── */
   useEffect(() => {
@@ -305,7 +306,7 @@ export default function EntitiesManagement() {
           if (!parsed.length) throw new Error(`No valid data. Columns: ${entityConfig.excelColumns.join(", ")}`);
 
           // Check for duplicates - only filter by entity_type if column exists
-          let duplicateQuery = supabase.from("schools").select("phone");
+          let duplicateQuery = db.from("schools").select("phone");
           if (hasEntityTypeColumn) {
             duplicateQuery = duplicateQuery.eq("entity_type", CURRENT_ENTITY_TYPE);
           }
@@ -331,7 +332,7 @@ export default function EntitiesManagement() {
             return hasEntityTypeColumn ? { ...baseData, entity_type: CURRENT_ENTITY_TYPE } : baseData;
           });
 
-          const { error: ins } = await supabase.from("schools").insert(insertData);
+          const { error: ins } = await db.from("schools").insert(insertData);
           if (ins) throw ins;
 
           setMessage(`Uploaded ${toInsert.length} ${entityConfig.label.toLowerCase()}(s)${dupes.length ? `. Skipped ${dupes.length} duplicate(s).` : "."}`);
@@ -368,7 +369,7 @@ export default function EntitiesManagement() {
           updateData.status = statusToSave;
         }
 
-        const { error } = await supabase.from("schools").update(updateData).eq("id", editingEntity.id);
+        const { error } = await db.from("schools").update(updateData).eq("id", editingEntity.id);
         if (error) throw error;
         setMessage(`${entityConfig.label} updated successfully`);
       } else {
@@ -381,7 +382,7 @@ export default function EntitiesManagement() {
         };
         const finalInsertData = hasEntityTypeColumn ? { ...insertData, entity_type: CURRENT_ENTITY_TYPE } : insertData;
 
-        const { error } = await supabase.from("schools").insert(finalInsertData);
+        const { error } = await db.from("schools").insert(finalInsertData);
         if (error) throw error;
         setMessage(`${entityConfig.label} created successfully`);
       }
@@ -420,16 +421,16 @@ export default function EntitiesManagement() {
     const isAll = bulkAssignedUsers.includes(userId);
     try {
       if (isAll) {
-        const { error } = await supabase.from("user_school_assignments")
+        const { error } = await db.from("user_school_assignments")
           .delete().eq("user_id", userId).in("school_id", selectedEntityIds);
         if (error) throw error;
         setBulkAssignedUsers((p) => p.filter((id) => id !== userId));
       } else {
-        const { error } = await supabase.from("user_school_assignments")
+        const { error } = await db.from("user_school_assignments")
           .insert(selectedEntityIds.map((sid) => ({ user_id: userId, school_id: sid, assigned_by: user?.id })));
         if (error) throw error;
         setBulkAssignedUsers((p) => [...p, userId]);
-        await supabase.from("schools").update({ status: "assigned" }).in("id", selectedEntityIds);
+        await db.from("schools").update({ status: "assigned" }).in("id", selectedEntityIds);
         setEntities((p) => p.map((s) => selectedEntityIds.includes(s.id) ? { ...s, status: "assigned" } : s));
       }
     } catch (err) {
@@ -455,11 +456,11 @@ export default function EntitiesManagement() {
     setLoading(true);
     try {
       if (deleteModal.type === 'single' && deleteModal.entityId) {
-        const { error } = await supabase.from("schools").delete().eq("id", deleteModal.entityId);
+        const { error } = await db.from("schools").delete().eq("id", deleteModal.entityId);
         if (error) throw error;
         setMessage(`${entityConfig.label} deleted successfully`);
       } else if (deleteModal.type === 'bulk') {
-        const { error } = await supabase.from("schools").delete().in("id", selectedEntityIds);
+        const { error } = await db.from("schools").delete().in("id", selectedEntityIds);
         if (error) throw error;
         setMessage(`Deleted ${selectedEntityIds.length} ${entityConfig.label.toLowerCase()}(s)`);
         setSelectedEntityIds([]);
@@ -477,10 +478,10 @@ export default function EntitiesManagement() {
     if (!confirm(`Unassign all users from ${selectedEntityIds.length} ${entityConfig.label.toLowerCase()}(s)?`)) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from("user_school_assignments")
+      const { error } = await db.from("user_school_assignments")
         .delete().in("school_id", selectedEntityIds);
       if (error) throw error;
-      await supabase.from("schools")
+      await db.from("schools")
         .update({ status: "unassigned", updated_at: new Date().toISOString() })
         .in("id", selectedEntityIds);
       setEntities((p) => p.map((e) => selectedEntityIds.includes(e.id) ? { ...e, status: "unassigned" } : e));
@@ -507,7 +508,7 @@ export default function EntitiesManagement() {
     const prev = entity.status;
     setEntities((p) => p.map((s) => s.id === entity.id ? { ...s, status: val } : s));
     try {
-      const { error } = await supabase.from("schools")
+      const { error } = await db.from("schools")
         .update({ status: val, updated_at: new Date().toISOString() }).eq("id", entity.id);
       if (error) {
         setEntities((p) => p.map((s) => s.id === entity.id ? { ...s, status: prev } : s));
@@ -655,7 +656,7 @@ export default function EntitiesManagement() {
                 onClick={async () => {
                   setShowBulkModal(true); setBulkLoading(true);
                   try {
-                    const { data } = await supabase
+                    const { data } = await db
                       .from("user_school_assignments")
                       .select("user_id, school_id")
                       .in("school_id", selectedEntityIds);
@@ -718,7 +719,8 @@ export default function EntitiesManagement() {
                 <tr>
                   <td colSpan={user?.role === "admin" ? 8 : 7}>
                     <div className={styles.emptyState}>
-                      No Data found
+                      <FolderOpenOutlined style={{ fontSize: "2.5rem", color: "#94a3b8", marginBottom: "0.5rem" }} />
+                      <p>No Data found</p>
                     </div>
                   </td>
                 </tr>

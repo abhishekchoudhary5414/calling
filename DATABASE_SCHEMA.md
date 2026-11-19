@@ -4,7 +4,7 @@ Complete PostgreSQL schema for the Data Management Portal.
 
 ## Run All Schemas
 
-Copy-paste all SQL below into Supabase SQL Editor and execute.
+Execute `schema.sql` via psql or copy-paste the SQL below into the Neon SQL Editor:
 
 ```sql
 -- ============================================

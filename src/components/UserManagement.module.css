@@ -398,17 +398,20 @@
 
 /* ── Responsive ──────────────────────────────────────── */
 @media (max-width: 768px) {
-  .wrapper         { padding: 1rem; }
-  .header          { padding: 1.25rem 1rem 1rem; }
-  .formPanel       { margin: 1rem 1rem 0; }
-  .tableContainer  { margin: 1rem 1rem 1.5rem; }
-  .alert           { margin: 0.75rem 1rem; }
+  .wrapper         { padding: 0.75rem; }
+  .header          { padding: 1rem 0.75rem; }
+  .formPanel       { margin: 0.75rem 0.75rem 0; }
+  .tableContainer  { margin: 0.75rem 0.5rem 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .actionBtn       { width: 36px; height: 36px; margin: 0 2px; }
+  .alert           { margin: 0.75rem; }
   .formGrid        { grid-template-columns: 1fr; }
   .formField.fullWidth { grid-column: 1; }
   .colDate, .colPhone { display: none; }
 }
 
 @media (max-width: 480px) {
-  .colEmail { display: none; }
-  .pageTitle { font-size: 1.1rem; }
+  .wrapper   { padding: 0.5rem; }
+  .colEmail  { display: none; }
+  .pageTitle { font-size: 1.15rem; }
+  .btnPrimary { width: 100%; justify-content: center; }
 }

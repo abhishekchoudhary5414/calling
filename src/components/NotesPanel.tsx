@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/db";
 import { Note } from "@/lib/types";
 import {
   Delete,
@@ -49,7 +49,7 @@ export default function NotesPanel({
   const [message, setMessage]         = useState("");
 
   const { user }  = useAuth();
-  const supabase  = useMemo(() => createClient(), []);
+  const db  = useMemo(() => createClient(), []);
 
   /* auto-dismiss message */
   useEffect(() => {
@@ -70,7 +70,7 @@ export default function NotesPanel({
   /* ── Fetch ───────────────────────────────────────── */
   const fetchNotes = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("notes")
         .select("*")
         .eq("school_id", entityId)
@@ -83,7 +83,7 @@ export default function NotesPanel({
     } catch (err) {
       console.error("Error fetching notes:", err);
     }
-  }, [entityId, onNoteCountChange, supabase]);
+  }, [entityId, onNoteCountChange, db]);
 
   useEffect(() => {
     fetchNotes();
@@ -99,14 +99,14 @@ export default function NotesPanel({
 
     try {
       if (editingNote) {
-        const { error } = await supabase
+        const { error } = await db
           .from("notes")
           .update({ content: formData.content, updated_at: new Date().toISOString() })
           .eq("id", editingNote.id);
         if (error) throw error;
         setMessage("Note updated successfully");
       } else {
-        const { error } = await supabase.from("notes").insert({
+        const { error } = await db.from("notes").insert({
           school_id:   entityId,
           author_id:   user.id,
           author_name: user.name,
@@ -130,7 +130,7 @@ export default function NotesPanel({
   const handleDelete = async (noteId: string) => {
     if (!confirm("Are you sure you want to delete this note?")) return;
     try {
-      const { error } = await supabase.from("notes").delete().eq("id", noteId);
+      const { error } = await db.from("notes").delete().eq("id", noteId);
       if (error) throw error;
       await fetchNotes();
     } catch (err) {
@@ -231,7 +231,9 @@ export default function NotesPanel({
           {/* Notes list */}
           {notes.length === 0 ? (
             <div className={styles.empty}>
-              <div className={styles.emptyIcon}>📝</div>
+              <div className={styles.emptyIcon}>
+                <NoteAltOutlined style={{ fontSize: "2.5rem", color: "#94a3b8" }} />
+              </div>
               <p className={styles.emptyText}>No notes yet. Add the first one!</p>
             </div>
           ) : (

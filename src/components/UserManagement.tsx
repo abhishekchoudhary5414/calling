@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import styles from "./UserManagement.module.css";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/db";
 import { User } from "@/lib/types";
 import {
   Delete,
@@ -39,7 +39,7 @@ export default function UserManagement() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const supabase = createClient();
+  const db = createClient();
   const { user: currentUser } = useAuth();
 
   /* auto-dismiss message */
@@ -54,7 +54,7 @@ export default function UserManagement() {
   /* ── Fetch ───────────────────────────────────────── */
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("users")
         .select("*")
         .order("created_at", { ascending: false });
@@ -77,7 +77,7 @@ export default function UserManagement() {
 
     try {
       if (editingUser) {
-        const { error } = await supabase
+        const { error } = await db
           .from("users")
           .update({
             name: formData.name,
@@ -90,7 +90,7 @@ export default function UserManagement() {
         if (error) throw error;
         setMessage("User updated successfully");
       } else {
-        const { error } = await supabase.from("users").insert({
+        const { error } = await db.from("users").insert({
           name: formData.name,
           email: formData.email,
           password: formData.password,
@@ -119,7 +119,7 @@ export default function UserManagement() {
     }
     if (!confirm("Are you sure you want to delete this user?")) return;
     try {
-      const { error } = await supabase.from("users").delete().eq("id", userId);
+      const { error } = await db.from("users").delete().eq("id", userId);
       if (error) throw error;
       setMessage("User deleted successfully");
       await fetchUsers();
@@ -285,7 +285,9 @@ export default function UserManagement() {
         <div className={styles.tableContainer}>
           {users.length === 0 ? (
             <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>👥</div>
+              <div className={styles.emptyIcon}>
+                <PeopleOutlined style={{ fontSize: "2.5rem", color: "#94a3b8" }} />
+              </div>
               <p className={styles.emptyText}>No users found. Add one to get started.</p>
             </div>
           ) : (

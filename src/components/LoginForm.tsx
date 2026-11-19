@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import styles from "./LoginForm.module.css";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
 import { setAuthUser, useAuth } from "@/context/AuthContext";
 import { User } from "@/lib/types";
 import { FormSkeleton } from "@/components/SkeletonLoader";
@@ -26,7 +25,6 @@ export default function LoginForm() {
 
   const router = useRouter();
   const { user, isLoading, setUser } = useAuth();
-  const supabase = createClient();
 
   /* Redirect if already authenticated */
   useEffect(() => {
@@ -41,35 +39,21 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .single() as { data: any; error: any };
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (fetchError || !data) {
-        setError("Invalid email or password");
+      const json = await res.json();
+      if (!res.ok || json.error || !json.user) {
+        setError(json.error || "Invalid email or password");
         setLoading(false);
         return;
       }
 
-      if (data.password !== password) {
-        setError("Invalid email or password");
-        setLoading(false);
-        return;
-      }
-
-      const loggedInUser: User = {
-        id: data.id,
-        email: data.email,
-        name: data.name,
-        role: data.role,
-        created_at: data.created_at,
-        assigned_number: data.assigned_number || null,
-      };
-
-      setUser(loggedInUser);
-      setAuthUser(loggedInUser);
+      setUser(json.user);
+      setAuthUser(json.user);
       router.replace("/dashboard");
     } catch (err) {
       setError("An error occurred. Please try again.");

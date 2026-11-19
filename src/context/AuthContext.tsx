@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, AuthSession } from "@/lib/types";
-import { createClient } from "@/lib/supabase";
 
 interface AuthContextType extends AuthSession {
   setUser: (user: User | null) => void;
@@ -15,7 +14,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const supabase = createClient();
 
   useEffect(() => {
     // Restore session from localStorage

@@ -18,6 +18,7 @@ import {
   SchoolOutlined,
   PaletteOutlined,
   BuildOutlined,
+  LockOutlined,
 } from "@mui/icons-material";
 import styles from "./dashboard.module.css";
 
@@ -68,7 +69,9 @@ export default function Dashboard() {
     return (
       <div className={styles.accessDenied}>
         <div className={styles.accessCard}>
-          <div className={styles.accessIcon}>🔒</div>
+          <div className={styles.accessIcon}>
+            <LockOutlined style={{ fontSize: "3rem", color: "#6366f1" }} />
+          </div>
           <h1>Access Denied</h1>
           <p>You need to be logged in to access the dashboard.</p>
           <button

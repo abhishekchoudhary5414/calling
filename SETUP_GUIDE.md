@@ -6,7 +6,7 @@ Complete step-by-step instructions to get the application running.
 
 - Node.js 18+ installed
 - npm or yarn package manager
-- Supabase account (free tier available at https://supabase.com)
+- Neon account (https://neon.tech) or any PostgreSQL database
 
 ## Step 1: Install Dependencies
 
@@ -16,28 +16,20 @@ npm install
 ```
 
 This installs:
-- Next.js 16, React 19, Next.js TypeScript support
-- Supabase client (@supabase/supabase-js, @supabase/ssr)
+- Next.js 16, React 19, TypeScript
+- PostgreSQL client (`pg`, `@types/pg`)
 - Material UI components (@mui/material, @mui/icons-material)
 - xlsx for Excel file parsing
 - Emotion for styling (@emotion/react, @emotion/styled)
 
-## Step 2: Create Supabase Project
+## Step 2: Configure Environment Variables
 
-1. Go to https://supabase.com and sign up/login
-2. Create a new project
-3. Go to Project Settings > API
-4. Copy:
-   - Project URL (NEXT_PUBLIC_SUPABASE_URL)
-   - Anon Public Key (NEXT_PUBLIC_SUPABASE_ANON_KEY)
-
-## Step 3: Configure Environment Variables
-
-Create `.env.local` in the project root:
+Create or update `.env.local` in the project root:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+DATABASE_URL=postgresql://neondb_owner:npg_UR1nBFGC7KZa@ep-wispy-bread-bdlxeqet-pooler.c-8.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+NEXT_PUBLIC_ENTITY_TYPE=school
+```
 ```
 
 Example:

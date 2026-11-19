@@ -809,36 +809,78 @@
 /* ── Responsive ──────────────────────────────────────── */
 @media (max-width: 768px) {
   .wrapper {
-    padding: 1rem;
+    padding: 0.75rem;
   }
 
   .header {
-    padding: 1.25rem 1rem 1rem;
+    padding: 1rem 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .titleBlock {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .toolbar {
-    padding: 0.75rem 1rem;
+    padding: 0.75rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchBox {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filterSelect {
+    width: 100%;
   }
 
   .tableContainer {
-    margin: 0 1rem 1.5rem;
+    margin: 0 0.5rem 1rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .actionBtn {
+    width: 36px;
+    height: 36px;
+    margin: 0 2px;
   }
 
   .bulkBar {
-    margin: 0 1rem 0.75rem;
+    margin: 0 0.5rem 0.75rem;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .alert {
-    margin: 0.75rem 1rem;
+    margin: 0.75rem;
   }
 
   .uploadPanel {
-    margin: 0 1rem 1rem;
+    margin: 0 0.5rem 1rem;
+    padding: 1rem;
   }
 
   .colDate,
   .colNo {
     display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .wrapper {
+    padding: 0.5rem;
+  }
+
+  .pageTitle {
+    font-size: 1.2rem;
+  }
+
+  .statusSelect {
+    font-size: 0.75rem !important;
+    padding: 0.3rem 1.4rem 0.3rem 0.5rem !important;
   }
 }
 
