@@ -66,7 +66,24 @@ export async function POST(req: Request) {
         // or "id.in.(uuid1,uuid2),phone.eq.123456"
         for (const orCond of orConditions) {
           if (typeof orCond !== "string") continue;
-          const parts = orCond.split(",");
+
+          // Split by comma only when not inside parentheses
+          const parts: string[] = [];
+          let current = "";
+          let parenDepth = 0;
+          for (let i = 0; i < orCond.length; i++) {
+            const char = orCond[i];
+            if (char === "(") parenDepth++;
+            else if (char === ")") parenDepth--;
+            if (char === "," && parenDepth === 0) {
+              if (current.trim()) parts.push(current.trim());
+              current = "";
+            } else {
+              current += char;
+            }
+          }
+          if (current.trim()) parts.push(current.trim());
+
           const orSubClauses: string[] = [];
 
           for (const rawPart of parts) {
@@ -101,7 +118,7 @@ export async function POST(req: Request) {
               if (isValidIdentifier(col)) {
                 const inValues = valList
                   .split(",")
-                  .map((v) => v.trim())
+                  .map((v) => v.trim().replace(/^['"]|['"]$/g, ""))
                   .filter(Boolean);
                 if (inValues.length > 0) {
                   params.push(inValues);

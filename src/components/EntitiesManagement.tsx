@@ -219,23 +219,33 @@ export default function EntitiesManagement() {
           if (assignError) {
             console.error("Error fetching user assignments:", assignError);
           } else {
-            const assignedIds = assignments?.map((a: { school_id: string }) => a.school_id) || [];
+            let assignedIds = assignments?.map((a: { school_id: string }) => a.school_id) || [];
 
-            if (assignedIds.length === 0 && !user.assigned_number) {
-              setEntities([]); setTotalCount(0); setEntitiesLoading(false); return;
+            // If user has an assigned phone number, also include any schools with matching phone
+            if (user.assigned_number && user.assigned_number.trim()) {
+              try {
+                const { data: phoneSchools } = await db
+                  .from("schools")
+                  .select("id")
+                  .eq("phone", user.assigned_number.trim());
+                if (phoneSchools && phoneSchools.length > 0) {
+                  const phoneIds = phoneSchools.map((s: { id: string }) => s.id);
+                  assignedIds = Array.from(new Set([...assignedIds, ...phoneIds]));
+                }
+              } catch (phoneErr) {
+                console.error("Error checking assigned phone:", phoneErr);
+              }
             }
 
-            if (user.assigned_number) {
-              const phoneVal = user.assigned_number.replace(/'/g, "''");
-              const filterCondition = assignedIds.length > 0
-                ? `id.in.(${assignedIds.join(",")}),phone.eq.${phoneVal}`
-                : `phone.eq.${phoneVal}`;
-              countQuery = countQuery.or(filterCondition);
-              dataQuery = dataQuery.or(filterCondition);
-            } else {
-              countQuery = countQuery.in("id", assignedIds);
-              dataQuery = dataQuery.in("id", assignedIds);
+            if (assignedIds.length === 0) {
+              setEntities([]);
+              setTotalCount(0);
+              setEntitiesLoading(false);
+              return;
             }
+
+            countQuery = countQuery.in("id", assignedIds);
+            dataQuery = dataQuery.in("id", assignedIds);
           }
         } catch (assignErr) {
           console.error("Error in user assignment filtering:", assignErr);
