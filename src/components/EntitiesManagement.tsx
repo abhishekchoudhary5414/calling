@@ -74,6 +74,29 @@ function getStatusColorClass(status: string): string {
   }
 }
 
+/* ── Helper: normalize phone number for duplicate checking ─ */
+function normalizePhoneNumber(phone: string): { raw: string; digits: string; base10: string } {
+  const raw = String(phone || "").trim();
+  const digits = raw.replace(/[^0-9]/g, "");
+  let base10 = digits;
+  if (digits.length === 12 && digits.startsWith("91")) {
+    base10 = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith("0")) {
+    base10 = digits.slice(1);
+  }
+  return { raw: raw.toLowerCase(), digits, base10 };
+}
+
+function matchesPhone(p1: string, p2: string): boolean {
+  const n1 = normalizePhoneNumber(p1);
+  const n2 = normalizePhoneNumber(p2);
+  if (!n1.raw || !n2.raw) return false;
+  if (n1.raw === n2.raw) return true;
+  if (n1.digits && n2.digits && n1.digits === n2.digits) return true;
+  if (n1.base10 && n2.base10 && n1.base10.length === 10 && n1.base10 === n2.base10) return true;
+  return false;
+}
+
 /* ── Main Component ─────────────────────────────────── */
 export default function EntitiesManagement() {
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -305,28 +328,36 @@ export default function EntitiesManagement() {
 
           if (!parsed.length) throw new Error(`No valid data. Columns: ${entityConfig.excelColumns.join(", ")}`);
 
-          // Check for duplicates - only filter by entity_type if column exists
-          let duplicateQuery = db.from("schools").select("phone");
-          if (hasEntityTypeColumn) {
-            duplicateQuery = duplicateQuery.eq("entity_type", CURRENT_ENTITY_TYPE);
-          }
-          const { data: existing } = await duplicateQuery;
-          const existPhones = new Set(existing?.map((e: any) => e.phone) || []);
+          // Check for duplicates across the entire database (assigned or unassigned)
+          const { data: existing, error: fetchErr } = await db.from("schools").select("phone");
+          if (fetchErr) throw fetchErr;
+
+          const existingList: string[] = (existing || []).map((e: any) => String(e.phone || ""));
           const toInsert: ParsedEntity[] = [];
           const dupes: string[] = [];
+
           parsed.forEach((e) => {
-            if (existPhones.has(e.phone)) { dupes.push(e.phone); }
-            else { toInsert.push(e); existPhones.add(e.phone); }
+            const isDuplicate =
+              existingList.some((dbPhone) => matchesPhone(e.phone, dbPhone)) ||
+              toInsert.some((ins) => matchesPhone(e.phone, ins.phone));
+
+            if (isDuplicate) {
+              dupes.push(e.phone);
+            } else {
+              toInsert.push(e);
+            }
           });
 
-          if (!toInsert.length) throw new Error("All phone numbers already exist");
+          if (!toInsert.length) {
+            throw new Error(`All ${dupes.length} phone number(s) in this file already exist in the database (whether assigned or unassigned). Duplicate numbers are not allowed.`);
+          }
 
           // Prepare insert data - only include entity_type if column exists
           const insertData = toInsert.map((e) => {
             const baseData = {
               name: e.name,
               address: e.address,
-              phone: e.phone,
+              phone: e.phone.trim(),
               status: "new" as const
             };
             return hasEntityTypeColumn ? { ...baseData, entity_type: CURRENT_ENTITY_TYPE } : baseData;
@@ -335,7 +366,7 @@ export default function EntitiesManagement() {
           const { error: ins } = await db.from("schools").insert(insertData);
           if (ins) throw ins;
 
-          setMessage(`Uploaded ${toInsert.length} ${entityConfig.label.toLowerCase()}(s)${dupes.length ? `. Skipped ${dupes.length} duplicate(s).` : "."}`);
+          setMessage(`Uploaded ${toInsert.length} ${entityConfig.label.toLowerCase()}(s)${dupes.length ? `. Skipped ${dupes.length} duplicate phone number(s).` : "."}`);
           setShowUpload(false);
           await fetchEntities(currentPage, itemsPerPage);
         } catch (err: any) {
@@ -352,6 +383,29 @@ export default function EntitiesManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true); setMessage("");
     try {
+      const phoneToSave = formData.phone.trim();
+      if (!phoneToSave) {
+        setMessage("Phone number is required");
+        setLoading(false);
+        return;
+      }
+
+      // Check for duplicate phone number across ALL schools (assigned and unassigned)
+      const { data: existingEntities, error: checkError } = await db.from("schools").select("id, phone");
+      if (checkError) throw checkError;
+
+      const isDuplicate = (existingEntities || []).some((item: any) => {
+        // If editing, allow keeping the entity's own existing phone number
+        if (editingEntity && item.id === editingEntity.id) return false;
+        return matchesPhone(phoneToSave, item.phone);
+      });
+
+      if (isDuplicate) {
+        setMessage(`Duplicate phone number! The number "${phoneToSave}" already exists in the system (whether assigned or unassigned). Duplicate numbers are not allowed.`);
+        setLoading(false);
+        return;
+      }
+
       const isAdmin = user?.role === "admin";
       const statusToSave = isAdmin
         ? formData.status || editingEntity?.status || "new"
@@ -359,9 +413,9 @@ export default function EntitiesManagement() {
 
       if (editingEntity) {
         const updateData: Record<string, any> = {
-          name: formData.name,
-          address: formData.address,
-          phone: formData.phone,
+          name: formData.name.trim(),
+          address: formData.address.trim(),
+          phone: phoneToSave,
           updated_at: new Date().toISOString(),
         };
 
@@ -375,9 +429,9 @@ export default function EntitiesManagement() {
       } else {
         // Prepare insert data - only include entity_type if column exists
         const insertData = {
-          name: formData.name,
-          address: formData.address,
-          phone: formData.phone,
+          name: formData.name.trim(),
+          address: formData.address.trim(),
+          phone: phoneToSave,
           status: statusToSave,
         };
         const finalInsertData = hasEntityTypeColumn ? { ...insertData, entity_type: CURRENT_ENTITY_TYPE } : insertData;
@@ -387,8 +441,10 @@ export default function EntitiesManagement() {
         setMessage(`${entityConfig.label} created successfully`);
       }
       resetForm(); await fetchEntities(currentPage, itemsPerPage);
-    } catch (err) {
-      setMessage(`Error saving ${entityConfig.label.toLowerCase()}`); console.error(err);
+    } catch (err: any) {
+      const msg = err?.message || `Error saving ${entityConfig.label.toLowerCase()}`;
+      setMessage(msg);
+      console.error(err);
     } finally {
       setLoading(false);
     }

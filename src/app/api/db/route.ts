@@ -371,6 +371,21 @@ export async function POST(req: Request) {
     }
   } catch (err: any) {
     console.error("API DB Error:", err);
+    if (err?.code === "23505") {
+      let customMsg = "Duplicate entry: This record already exists.";
+      if (
+        err?.constraint === "schools_phone_unique" ||
+        (err?.detail && err.detail.toLowerCase().includes("phone"))
+      ) {
+        customMsg = "Duplicate phone number! This phone number already exists in the database (whether assigned or unassigned). Duplicate numbers are not allowed.";
+      } else if (err?.detail && err.detail.toLowerCase().includes("email")) {
+        customMsg = "Duplicate email: A user with this email already exists.";
+      }
+      return NextResponse.json(
+        { data: null, error: { message: customMsg } },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { data: null, error: { message: err?.message || "Internal server error" } },
       { status: 500 }
